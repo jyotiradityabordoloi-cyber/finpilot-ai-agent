@@ -8,12 +8,8 @@ import pandas as pd
 # Project configuration
 # ---------------------------------------------------------
 
-# evaluation/evaluate.py
-#        ↓
-# finpilot/
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 
-# Allow Python to import the agents package
 sys.path.insert(0, str(PROJECT_ROOT))
 
 from agents.tools import investigate_transaction
@@ -23,13 +19,41 @@ DATA_DIR = PROJECT_ROOT / "data"
 
 
 # ---------------------------------------------------------
+# State mapping
+# ---------------------------------------------------------
+
+def get_predicted_state(investigation: dict) -> str:
+    """
+    Convert FinPilot's internal investigation status
+    into a product-level state.
+    """
+
+    status = investigation.get("status")
+
+    if status == "exception_detected":
+        return "EXCEPTION"
+
+    if status == "review_required":
+        return "REVIEW_REQUIRED"
+
+    if status == "no_exception":
+        return "NORMAL"
+
+    return "UNKNOWN"
+
+
+# ---------------------------------------------------------
 # Evaluation
 # ---------------------------------------------------------
 
-def evaluate_exception_detection() -> None:
+def evaluate_state_classification() -> None:
     """
-    Compare FinPilot's investigation results against
-    the known ground truth dataset.
+    Compare FinPilot predictions against ground truth.
+
+    The evaluator measures:
+    - State accuracy
+    - Per-state performance
+    - Incorrect classifications
     """
 
     ground_truth = pd.read_csv(
@@ -42,7 +66,10 @@ def evaluate_exception_detection() -> None:
 
     results = []
 
+    # -----------------------------------------------------
     # Run FinPilot against every transaction
+    # -----------------------------------------------------
+
     for _, transaction in transactions.iterrows():
 
         transaction_id = transaction["transaction_id"]
@@ -51,89 +78,111 @@ def evaluate_exception_detection() -> None:
             transaction_id
         )
 
-        # What FinPilot predicted
-        predicted_exception = (
-            investigation.get("status")
-            == "exception_detected"
+        predicted_state = get_predicted_state(
+            investigation
         )
 
-        # What the ground truth says
         ground_truth_match = ground_truth[
             ground_truth["transaction_id"]
             == transaction_id
         ]
 
-        actual_exception = (
-            bool(ground_truth_match["is_exception"].any())
-            if not ground_truth_match.empty
-            else False
-        )
+        if ground_truth_match.empty:
+            expected_state = "UNKNOWN"
+        else:
+            expected_state = ground_truth_match.iloc[0][
+                "expected_state"
+            ]
 
         results.append(
             {
                 "transaction_id": transaction_id,
-                "predicted_exception": predicted_exception,
-                "actual_exception": actual_exception,
+                "predicted_state": predicted_state,
+                "expected_state": expected_state,
             }
         )
 
     results_df = pd.DataFrame(results)
 
     # -----------------------------------------------------
-    # Confusion matrix
+    # Overall accuracy
     # -----------------------------------------------------
 
-    true_positive = (
-        (results_df["predicted_exception"])
-        & (results_df["actual_exception"])
+    correct = (
+        results_df["predicted_state"]
+        == results_df["expected_state"]
     ).sum()
 
-    false_positive = (
-        (results_df["predicted_exception"])
-        & (~results_df["actual_exception"])
-    ).sum()
-
-    false_negative = (
-        (~results_df["predicted_exception"])
-        & (results_df["actual_exception"])
-    ).sum()
-
-    true_negative = (
-        (~results_df["predicted_exception"])
-        & (~results_df["actual_exception"])
-    ).sum()
-
-    # -----------------------------------------------------
-    # Metrics
-    # -----------------------------------------------------
-
-    precision = (
-        true_positive
-        / (true_positive + false_positive)
-        if true_positive + false_positive
-        else 0
-    )
-
-    recall = (
-        true_positive
-        / (true_positive + false_negative)
-        if true_positive + false_negative
-        else 0
-    )
+    total = len(results_df)
 
     accuracy = (
-        (true_positive + true_negative)
-        / len(results_df)
-        if len(results_df)
+        correct / total
+        if total
         else 0
     )
 
-    false_positive_rate = (
-        false_positive
-        / (false_positive + true_negative)
-        if false_positive + true_negative
-        else 0
-    )
+    # -----------------------------------------------------
+    # Per-state performance
+    # -----------------------------------------------------
+
+    states = [
+        "NORMAL",
+        "EXCEPTION",
+        "REVIEW_REQUIRED",
+    ]
+
+    state_metrics = []
+
+    for state in states:
+
+        actual = (
+            results_df["expected_state"] == state
+        )
+
+        predicted = (
+            results_df["predicted_state"] == state
+        )
+
+        true_positive = (
+            actual & predicted
+        ).sum()
+
+        actual_count = actual.sum()
+
+        predicted_count = predicted.sum()
+
+        recall = (
+            true_positive / actual_count
+            if actual_count
+            else 0
+        )
+
+        precision = (
+            true_positive / predicted_count
+            if predicted_count
+            else 0
+        )
+
+        state_metrics.append(
+            {
+                "state": state,
+                "expected": actual_count,
+                "predicted": predicted_count,
+                "precision": precision,
+                "recall": recall,
+            }
+        )
+
+    metrics_df = pd.DataFrame(state_metrics)
+
+    # -----------------------------------------------------
+    # Incorrect classifications
+    # -----------------------------------------------------
+
+    incorrect = results_df[
+        results_df["predicted_state"]
+        != results_df["expected_state"]
+    ]
 
     # -----------------------------------------------------
     # Print evaluation report
@@ -145,30 +194,46 @@ def evaluate_exception_detection() -> None:
     print("========================================")
 
     print()
-    print(f"Transactions evaluated : {len(results_df)}")
+    print(f"Transactions evaluated : {total}")
+    print(f"Correct classifications : {correct}")
+    print(f"Overall accuracy        : {accuracy:.2%}")
 
     print()
-    print("Confusion Matrix")
-    print("----------------")
-    print(f"True positives         : {true_positive}")
-    print(f"False positives        : {false_positive}")
-    print(f"False negatives        : {false_negative}")
-    print(f"True negatives         : {true_negative}")
+    print("State Performance")
+    print("-----------------")
+
+    for _, row in metrics_df.iterrows():
+
+        print(
+            f"{row['state']:<18}"
+            f" Precision: {row['precision']:.2%}  "
+            f"Recall: {row['recall']:.2%}"
+        )
 
     print()
-    print("Metrics")
-    print("----------------")
-    print(f"Precision              : {precision:.2%}")
-    print(f"Recall                 : {recall:.2%}")
-    print(f"Accuracy               : {accuracy:.2%}")
-    print(f"False positive rate    : {false_positive_rate:.2%}")
+    print("Incorrect Classifications")
+    print("-------------------------")
+
+    if incorrect.empty:
+
+        print("None 🎯")
+
+    else:
+
+        print(
+            incorrect.to_string(
+                index=False
+            )
+        )
 
     print()
     print("Transaction Results")
-    print("----------------")
+    print("-------------------")
 
     print(
-        results_df.to_string(index=False)
+        results_df.to_string(
+            index=False
+        )
     )
 
     print()
@@ -180,4 +245,4 @@ def evaluate_exception_detection() -> None:
 # ---------------------------------------------------------
 
 if __name__ == "__main__":
-    evaluate_exception_detection()
+    evaluate_state_classification()

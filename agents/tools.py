@@ -334,16 +334,29 @@ def investigate_transaction(transaction_id: str) -> Dict[str, Any]:
             }
         )
 
+        # ---------------------------------------------------------
+    # Determine investigation state
+    # ---------------------------------------------------------
+
+    has_insufficient_history = (
+        historical_result.get("status")
+        == "insufficient_history"
+    )
+
     if len(evidence) >= 2:
         severity = "HIGH"
+        status = "exception_detected"
+
     elif len(evidence) == 1:
         severity = "MEDIUM"
+        status = "exception_detected"
+
+    elif has_insufficient_history:
+        severity = "MEDIUM"
+        status = "review_required"
+
     else:
         severity = "NORMAL"
-
-    if evidence:
-        status = "exception_detected"
-    else:
         status = "no_exception"
 
     return {

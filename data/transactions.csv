@@ -1,13 +1,43 @@
-transaction_id,date,vendor,category,amount,invoice_id
-TXN-1001,2026-05-05,AWS,Cloud Infrastructure,12200,INV-1001
-TXN-1002,2026-06-05,AWS,Cloud Infrastructure,13100,INV-1002
-TXN-1003,2026-07-05,AWS,Cloud Infrastructure,13600,INV-1003
-TXN-1004,2026-08-05,AWS,Cloud Infrastructure,87500,INV-1004
-TXN-1005,2026-05-10,Slack,Software,8500,INV-1005
-TXN-1006,2026-06-10,Slack,Software,8500,INV-1006
-TXN-1007,2026-07-10,Slack,Software,9000,INV-1007
-TXN-1008,2026-08-10,Slack,Software,8800,INV-1008
-TXN-1009,2026-07-15,Office Depot,Office Supplies,4200,INV-1009
-TXN-1010,2026-08-15,Office Depot,Office Supplies,4500,INV-1010
-TXN-1011,2026-08-18,Adobe,Software,15000,INV-1011
-TXN-1012,2026-08-18,Adobe,Software,15000,INV-1011
+transaction_id,date,vendor,category,amount,invoice_id,scenario
+TXN-1001,2026-05-05,AWS,Cloud Infrastructure,12200,INV-1001,normal_recurring
+TXN-1002,2026-06-05,AWS,Cloud Infrastructure,13100,INV-1002,normal_recurring
+TXN-1003,2026-07-05,AWS,Cloud Infrastructure,13600,INV-1003,normal_recurring
+TXN-1004,2026-08-05,AWS,Cloud Infrastructure,13800,INV-1004,normal_recurring
+TXN-1005,2026-05-05,Slack,Software,8500,INV-1005,normal_recurring
+TXN-1006,2026-06-05,Slack,Software,8500,INV-1006,normal_recurring
+TXN-1007,2026-07-05,Slack,Software,9000,INV-1007,normal_recurring
+TXN-1008,2026-08-05,Slack,Software,8800,INV-1008,normal_recurring
+TXN-1009,2026-05-05,Office Depot,Office Supplies,4200,INV-1009,normal_recurring
+TXN-1010,2026-06-05,Office Depot,Office Supplies,4500,INV-1010,normal_recurring
+TXN-1011,2026-07-05,Office Depot,Office Supplies,4300,INV-1011,normal_recurring
+TXN-1012,2026-08-05,Office Depot,Office Supplies,4400,INV-1012,normal_recurring
+TXN-1013,2026-05-05,Atlassian,Software,7200,INV-1013,normal_recurring
+TXN-1014,2026-06-05,Atlassian,Software,7300,INV-1014,normal_recurring
+TXN-1015,2026-07-05,Atlassian,Software,7400,INV-1015,normal_recurring
+TXN-1016,2026-08-05,Atlassian,Software,7500,INV-1016,normal_recurring
+TXN-1017,2026-05-05,HubSpot,Marketing,11000,INV-1017,normal_recurring
+TXN-1018,2026-06-05,HubSpot,Marketing,11200,INV-1018,normal_recurring
+TXN-1019,2026-07-05,HubSpot,Marketing,11500,INV-1019,normal_recurring
+TXN-1020,2026-08-05,HubSpot,Marketing,11400,INV-1020,normal_recurring
+TXN-1021,2026-05-05,Zoom,Software,5000,INV-1021,normal_recurring
+TXN-1022,2026-06-05,Zoom,Software,5100,INV-1022,normal_recurring
+TXN-1023,2026-07-05,Zoom,Software,5200,INV-1023,normal_recurring
+TXN-1024,2026-08-05,Zoom,Software,5300,INV-1024,normal_recurring
+TXN-1025,2026-05-05,Canva,Software,3200,INV-1025,normal_recurring
+TXN-1026,2026-06-05,Canva,Software,3300,INV-1026,normal_recurring
+TXN-1027,2026-07-05,Canva,Software,3400,INV-1027,normal_recurring
+TXN-1028,2026-08-05,Canva,Software,3500,INV-1028,normal_recurring
+TXN-1029,2026-05-05,Deloitte,Professional Services,25000,INV-1029,normal_recurring
+TXN-1030,2026-06-05,Deloitte,Professional Services,25500,INV-1030,normal_recurring
+TXN-1031,2026-07-05,Deloitte,Professional Services,26000,INV-1031,normal_recurring
+TXN-1032,2026-08-05,Deloitte,Professional Services,26500,INV-1032,normal_recurring
+TXN-1050,2026-08-12,Notion,Software,9000,INV-1050,moderate_spending_increase
+TXN-1051,2026-08-13,AWS,Cloud Infrastructure,45000,INV-1051,legitimate_spending_spike
+TXN-1052,2026-08-14,AWS,Cloud Infrastructure,87500,INV-1052,extreme_spending_anomaly
+TXN-1053,2026-08-15,Adobe,Software,15000,INV-1053,duplicate_payment
+TXN-1054,2026-08-15,Adobe,Software,15000,INV-1053,duplicate_payment
+TXN-1055,2026-08-16,Microsoft,Software,15000,INV-1055,similar_legitimate_transactions
+TXN-1056,2026-08-20,Microsoft,Software,14950,INV-1056,similar_legitimate_transactions
+TXN-1057,2026-08-18,Dell,Hardware,25000,INV-1057,invoice_mismatch
+TXN-1058,2026-08-19,Amazon Business,Office Supplies,7800,INV-MISSING-1058,missing_invoice
+TXN-1059,2026-08-21,NewVendor Ltd,Professional Services,18000,INV-1059,new_vendor
