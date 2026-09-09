@@ -1,4 +1,11 @@
-transaction_id,is_exception,invoice_mismatch,expected_severity,reason
-TXN-1004,True,True,HIGH,Historical anomaly + invoice mismatch
-TXN-1011,True,False,HIGH,Potential duplicate payment
-TXN-1012,True,False,HIGH,Potential duplicate payment
+transaction_id,expected_state,expected_severity,reason
+TXN-1050,NORMAL,MEDIUM,Moderate spending increase
+TXN-1051,NORMAL,NORMAL,Legitimate large spending spike with supporting invoice
+TXN-1052,EXCEPTION,HIGH,Extreme unexplained spending
+TXN-1053,EXCEPTION,HIGH,Potential duplicate payment
+TXN-1054,EXCEPTION,HIGH,Potential duplicate payment
+TXN-1055,NORMAL,NORMAL,Similar transaction with separate invoice
+TXN-1056,NORMAL,NORMAL,Similar transaction with separate invoice
+TXN-1057,EXCEPTION,MEDIUM,Invoice amount mismatch
+TXN-1058,EXCEPTION,MEDIUM,Missing invoice documentation
+TXN-1059,REVIEW_REQUIRED,MEDIUM,New vendor with insufficient history

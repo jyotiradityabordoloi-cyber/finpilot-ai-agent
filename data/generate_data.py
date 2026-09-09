@@ -7,31 +7,232 @@ DATA_DIR = Path(__file__).parent
 
 
 def create_transactions() -> pd.DataFrame:
-    """Create synthetic transaction data for FinPilot."""
+    """
+    Create a controlled synthetic transaction dataset.
 
-    transactions = [
-        # Normal AWS transactions
-        ["TXN-1001", "2026-05-05", "AWS", "Cloud Infrastructure", 12200, "INV-1001"],
-        ["TXN-1002", "2026-06-05", "AWS", "Cloud Infrastructure", 13100, "INV-1002"],
-        ["TXN-1003", "2026-07-05", "AWS", "Cloud Infrastructure", 13600, "INV-1003"],
+    The dataset contains:
+    - Normal recurring transactions
+    - Moderate spending changes
+    - Legitimate spending spikes
+    - Historical anomalies
+    - Duplicate payments
+    - Similar but legitimate transactions
+    - Invoice mismatches
+    - Missing invoices
+    - New vendors
+    """
 
-        # Deliberate anomaly: unusually high amount
-        ["TXN-1004", "2026-08-05", "AWS", "Cloud Infrastructure", 87500, "INV-1004"],
+    transactions = []
 
-        # Normal Slack transactions
-        ["TXN-1005", "2026-05-10", "Slack", "Software", 8500, "INV-1005"],
-        ["TXN-1006", "2026-06-10", "Slack", "Software", 8500, "INV-1006"],
-        ["TXN-1007", "2026-07-10", "Slack", "Software", 9000, "INV-1007"],
-        ["TXN-1008", "2026-08-10", "Slack", "Software", 8800, "INV-1008"],
+    # ---------------------------------------------------------
+    # Normal recurring vendor activity
+    # ---------------------------------------------------------
 
-        # Normal office supplies
-        ["TXN-1009", "2026-07-15", "Office Depot", "Office Supplies", 4200, "INV-1009"],
-        ["TXN-1010", "2026-08-15", "Office Depot", "Office Supplies", 4500, "INV-1010"],
-
-        # Deliberate duplicate
-        ["TXN-1011", "2026-08-18", "Adobe", "Software", 15000, "INV-1011"],
-        ["TXN-1012", "2026-08-18", "Adobe", "Software", 15000, "INV-1011"],
+    normal_vendors = [
+        ("AWS", "Cloud Infrastructure", [12200, 13100, 13600, 13800]),
+        ("Slack", "Software", [8500, 8500, 9000, 8800]),
+        ("Office Depot", "Office Supplies", [4200, 4500, 4300, 4400]),
+        ("Atlassian", "Software", [7200, 7300, 7400, 7500]),
+        ("HubSpot", "Marketing", [11000, 11200, 11500, 11400]),
+        ("Zoom", "Software", [5000, 5100, 5200, 5300]),
+        ("Canva", "Software", [3200, 3300, 3400, 3500]),
+        ("Deloitte", "Professional Services", [25000, 25500, 26000, 26500]),
     ]
+
+    transaction_counter = 1001
+    invoice_counter = 1001
+
+    months = [
+        ("2026-05-05", "2026-05-04"),
+        ("2026-06-05", "2026-06-04"),
+        ("2026-07-05", "2026-07-04"),
+        ("2026-08-05", "2026-08-04"),
+    ]
+
+    for vendor, category, amounts in normal_vendors:
+
+        for index, (transaction_date, invoice_date) in enumerate(months):
+
+            amount = amounts[index]
+
+            transactions.append(
+                [
+                    f"TXN-{transaction_counter}",
+                    transaction_date,
+                    vendor,
+                    category,
+                    amount,
+                    f"INV-{invoice_counter}",
+                    "normal_recurring",
+                ]
+            )
+
+            transaction_counter += 1
+            invoice_counter += 1
+
+    # ---------------------------------------------------------
+    # Moderate spending increase
+    # Expected: NORMAL
+    # ---------------------------------------------------------
+
+    transactions.append(
+        [
+            "TXN-1050",
+            "2026-08-12",
+            "Notion",
+            "Software",
+            9000,
+            "INV-1050",
+            "moderate_spending_increase",
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # Legitimate large spending spike
+    # Expected: NORMAL
+    #
+    # This is intentionally difficult for a simple anomaly rule.
+    # ---------------------------------------------------------
+
+    transactions.append(
+        [
+            "TXN-1051",
+            "2026-08-13",
+            "AWS",
+            "Cloud Infrastructure",
+            45000,
+            "INV-1051",
+            "legitimate_spending_spike",
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # Extreme unexplained spending
+    # Expected: EXCEPTION / HIGH
+    # ---------------------------------------------------------
+
+    transactions.append(
+        [
+            "TXN-1052",
+            "2026-08-14",
+            "AWS",
+            "Cloud Infrastructure",
+            87500,
+            "INV-1052",
+            "extreme_spending_anomaly",
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # Exact duplicate payment
+    # Expected: EXCEPTION / HIGH
+    # ---------------------------------------------------------
+
+    transactions.append(
+        [
+            "TXN-1053",
+            "2026-08-15",
+            "Adobe",
+            "Software",
+            15000,
+            "INV-1053",
+            "duplicate_payment",
+        ]
+    )
+
+    transactions.append(
+        [
+            "TXN-1054",
+            "2026-08-15",
+            "Adobe",
+            "Software",
+            15000,
+            "INV-1053",
+            "duplicate_payment",
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # Similar but legitimate transactions
+    # Expected: NORMAL
+    #
+    # Same vendor and similar amount, but different invoices.
+    # ---------------------------------------------------------
+
+    transactions.append(
+        [
+            "TXN-1055",
+            "2026-08-16",
+            "Microsoft",
+            "Software",
+            15000,
+            "INV-1055",
+            "similar_legitimate_transactions",
+        ]
+    )
+
+    transactions.append(
+        [
+            "TXN-1056",
+            "2026-08-20",
+            "Microsoft",
+            "Software",
+            14950,
+            "INV-1056",
+            "similar_legitimate_transactions",
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # Invoice mismatch
+    # Expected: EXCEPTION / MEDIUM
+    # ---------------------------------------------------------
+
+    transactions.append(
+        [
+            "TXN-1057",
+            "2026-08-18",
+            "Dell",
+            "Hardware",
+            25000,
+            "INV-1057",
+            "invoice_mismatch",
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # Missing invoice
+    # Expected: EXCEPTION / MEDIUM
+    # ---------------------------------------------------------
+
+    transactions.append(
+        [
+            "TXN-1058",
+            "2026-08-19",
+            "Amazon Business",
+            "Office Supplies",
+            7800,
+            "INV-MISSING-1058",
+            "missing_invoice",
+        ]
+    )
+
+    # ---------------------------------------------------------
+    # New vendor with no history
+    # Expected: REVIEW_REQUIRED
+    # ---------------------------------------------------------
+
+    transactions.append(
+        [
+            "TXN-1059",
+            "2026-08-21",
+            "NewVendor Ltd",
+            "Professional Services",
+            18000,
+            "INV-1059",
+            "new_vendor",
+        ]
+    )
 
     return pd.DataFrame(
         transactions,
@@ -42,31 +243,40 @@ def create_transactions() -> pd.DataFrame:
             "category",
             "amount",
             "invoice_id",
+            "scenario",
         ],
     )
 
 
 def create_invoices() -> pd.DataFrame:
-    """Create synthetic invoice data."""
+    """Create invoice records for the synthetic transactions."""
 
-    invoices = [
-        ["INV-1001", "2026-05-04", "AWS", 12200],
-        ["INV-1002", "2026-06-04", "AWS", 13100],
-        ["INV-1003", "2026-07-04", "AWS", 13600],
+    transactions = create_transactions()
 
-        # Deliberate mismatch with TXN-1004
-        ["INV-1004", "2026-08-04", "AWS", 53100],
+    invoices = []
 
-        ["INV-1005", "2026-05-09", "Slack", 8500],
-        ["INV-1006", "2026-06-09", "Slack", 8500],
-        ["INV-1007", "2026-07-09", "Slack", 9000],
-        ["INV-1008", "2026-08-09", "Slack", 8800],
+    for _, transaction in transactions.iterrows():
 
-        ["INV-1009", "2026-07-14", "Office Depot", 4200],
-        ["INV-1010", "2026-08-14", "Office Depot", 4500],
+        scenario = transaction["scenario"]
 
-        ["INV-1011", "2026-08-17", "Adobe", 15000],
-    ]
+        # Missing invoice scenario intentionally has no invoice.
+        if scenario == "missing_invoice":
+            continue
+
+        invoice_amount = float(transaction["amount"])
+
+        # Intentional invoice mismatch.
+        if scenario == "invoice_mismatch":
+            invoice_amount = 21500
+
+        invoices.append(
+            [
+                transaction["invoice_id"],
+                transaction["date"],
+                transaction["vendor"],
+                invoice_amount,
+            ]
+        )
 
     return pd.DataFrame(
         invoices,
@@ -80,20 +290,78 @@ def create_invoices() -> pd.DataFrame:
 
 
 def create_ground_truth() -> pd.DataFrame:
-    """Define known issues for evaluation."""
+    """
+    Define expected outcomes for evaluation.
+
+    Expected states:
+    - NORMAL
+    - EXCEPTION
+    - REVIEW_REQUIRED
+    """
 
     ground_truth = [
-        ["TXN-1004", True, True, "HIGH", "Historical anomaly + invoice mismatch"],
-        ["TXN-1011", True, False, "HIGH", "Potential duplicate payment"],
-        ["TXN-1012", True, False, "HIGH", "Potential duplicate payment"],
+        ["TXN-1050", "NORMAL", "MEDIUM", "Moderate spending increase"],
+        [
+            "TXN-1051",
+            "NORMAL",
+            "NORMAL",
+            "Legitimate large spending spike with supporting invoice",
+        ],
+        [
+            "TXN-1052",
+            "EXCEPTION",
+            "HIGH",
+            "Extreme unexplained spending",
+        ],
+        [
+            "TXN-1053",
+            "EXCEPTION",
+            "HIGH",
+            "Potential duplicate payment",
+        ],
+        [
+            "TXN-1054",
+            "EXCEPTION",
+            "HIGH",
+            "Potential duplicate payment",
+        ],
+        [
+            "TXN-1055",
+            "NORMAL",
+            "NORMAL",
+            "Similar transaction with separate invoice",
+        ],
+        [
+            "TXN-1056",
+            "NORMAL",
+            "NORMAL",
+            "Similar transaction with separate invoice",
+        ],
+        [
+            "TXN-1057",
+            "EXCEPTION",
+            "MEDIUM",
+            "Invoice amount mismatch",
+        ],
+        [
+            "TXN-1058",
+            "EXCEPTION",
+            "MEDIUM",
+            "Missing invoice documentation",
+        ],
+        [
+            "TXN-1059",
+            "REVIEW_REQUIRED",
+            "MEDIUM",
+            "New vendor with insufficient history",
+        ],
     ]
 
     return pd.DataFrame(
         ground_truth,
         columns=[
             "transaction_id",
-            "is_exception",
-            "invoice_mismatch",
+            "expected_state",
             "expected_severity",
             "reason",
         ],
@@ -101,20 +369,31 @@ def create_ground_truth() -> pd.DataFrame:
 
 
 def main() -> None:
-    """Generate all synthetic FinPilot datasets."""
+    """Generate all FinPilot synthetic datasets."""
 
     transactions = create_transactions()
     invoices = create_invoices()
     ground_truth = create_ground_truth()
 
-    transactions.to_csv(DATA_DIR / "transactions.csv", index=False)
-    invoices.to_csv(DATA_DIR / "invoices.csv", index=False)
-    ground_truth.to_csv(DATA_DIR / "ground_truth.csv", index=False)
+    transactions.to_csv(
+        DATA_DIR / "transactions.csv",
+        index=False,
+    )
 
-    print("FinPilot synthetic dataset created.")
+    invoices.to_csv(
+        DATA_DIR / "invoices.csv",
+        index=False,
+    )
+
+    ground_truth.to_csv(
+        DATA_DIR / "ground_truth.csv",
+        index=False,
+    )
+
+    print("FinPilot robust synthetic dataset created.")
     print(f"Transactions: {len(transactions)}")
     print(f"Invoices: {len(invoices)}")
-    print(f"Ground-truth exceptions: {len(ground_truth)}")
+    print(f"Ground-truth cases: {len(ground_truth)}")
 
 
 if __name__ == "__main__":
