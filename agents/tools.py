@@ -4,15 +4,10 @@ from typing import Dict, Any
 import pandas as pd
 
 
-# Project data directory
 DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 
 
 def analyze_transaction(transaction_id: str) -> Dict[str, Any]:
-    """
-    Retrieve and analyze a financial transaction.
-    """
-
     transactions = pd.read_csv(DATA_DIR / "transactions.csv")
 
     matches = transactions[
@@ -40,10 +35,6 @@ def analyze_transaction(transaction_id: str) -> Dict[str, Any]:
 
 
 def detect_duplicates(transaction_id: str) -> Dict[str, Any]:
-    """
-    Check whether a transaction may be duplicated.
-    """
-
     transactions = pd.read_csv(DATA_DIR / "transactions.csv")
 
     matches = transactions[
@@ -77,10 +68,6 @@ def detect_duplicates(transaction_id: str) -> Dict[str, Any]:
 
 
 def match_invoice(transaction_id: str) -> Dict[str, Any]:
-    """
-    Match a transaction against its associated invoice.
-    """
-
     transactions = pd.read_csv(DATA_DIR / "transactions.csv")
     invoices = pd.read_csv(DATA_DIR / "invoices.csv")
 
@@ -131,9 +118,6 @@ def analyze_historical_spending(
     vendor: str,
     current_transaction_id: str,
 ) -> Dict[str, Any]:
-    """
-    Compare a transaction against the vendor's previous spending history.
-    """
 
     transactions = pd.read_csv(DATA_DIR / "transactions.csv")
 
@@ -211,9 +195,6 @@ def analyze_historical_spending(
 def check_missing_documentation(
     transaction_id: str,
 ) -> Dict[str, Any]:
-    """
-    Check whether supporting documentation exists.
-    """
 
     transactions = pd.read_csv(DATA_DIR / "transactions.csv")
     invoices = pd.read_csv(DATA_DIR / "invoices.csv")
@@ -244,9 +225,6 @@ def check_missing_documentation(
 
 
 def analyze_vendor(vendor: str) -> Dict[str, Any]:
-    """
-    Analyze vendor activity and spending patterns.
-    """
 
     transactions = pd.read_csv(DATA_DIR / "transactions.csv")
 
@@ -260,7 +238,10 @@ def analyze_vendor(vendor: str) -> Dict[str, Any]:
             "vendor": vendor,
         }
 
-    total_spend = float(vendor_transactions["amount"].sum())
+    total_spend = float(
+        vendor_transactions["amount"].sum()
+    )
+
     average_transaction = float(
         vendor_transactions["amount"].mean()
     )
@@ -270,61 +251,110 @@ def analyze_vendor(vendor: str) -> Dict[str, Any]:
         "vendor": vendor,
         "transaction_count": len(vendor_transactions),
         "total_spend": round(total_spend, 2),
-        "average_transaction": round(average_transaction, 2),
+        "average_transaction": round(
+            average_transaction,
+            2,
+        ),
     }
 
-def investigate_transaction(transaction_id: str) -> Dict[str, Any]:
-    """
-    Run a multi-signal investigation for a transaction.
 
-    This function combines deterministic financial checks into a
-    structured investigation result that can later be consumed
-    by the FinPilot AI agent.
-    """
+def investigate_transaction(
+    transaction_id: str,
+) -> Dict[str, Any]:
 
-    transaction_result = analyze_transaction(transaction_id)
+    # -----------------------------------------------------
+    # Analyze transaction
+    # -----------------------------------------------------
+
+    transaction_result = analyze_transaction(
+        transaction_id
+    )
 
     if transaction_result["status"] != "success":
         return transaction_result
 
     vendor = transaction_result["vendor"]
 
+    # -----------------------------------------------------
+    # Run deterministic checks
+    # -----------------------------------------------------
+
     historical_result = analyze_historical_spending(
         vendor,
         transaction_id,
     )
 
-    invoice_result = match_invoice(transaction_id)
+    invoice_result = match_invoice(
+        transaction_id
+    )
 
-    duplicate_result = detect_duplicates(transaction_id)
+    duplicate_result = detect_duplicates(
+        transaction_id
+    )
+
+    # -----------------------------------------------------
+    # Collect evidence
+    # -----------------------------------------------------
 
     evidence = []
 
-    if historical_result.get("risk_level") in {"HIGH", "MEDIUM"}:
+    if historical_result.get("risk_level") in {
+        "HIGH",
+        "MEDIUM",
+    }:
+
         evidence.append(
             {
                 "type": "historical_spending",
-                "risk_level": historical_result["risk_level"],
+                "risk_level": historical_result[
+                    "risk_level"
+                ],
                 "deviation_percentage": historical_result[
                     "deviation_percentage"
                 ],
-                "difference": historical_result["difference"],
+                "difference": historical_result[
+                    "difference"
+                ],
             }
         )
 
-    if invoice_result.get("invoice_matches") is False:
+    if invoice_result.get("status") == "missing_invoice":
+
+        evidence.append(
+            {
+                "type": "missing_invoice",
+                "invoice_id": invoice_result[
+                    "invoice_id"
+                ],
+                "transaction_amount": invoice_result[
+                    "transaction_amount"
+                ],
+            }
+        )
+
+    elif invoice_result.get(
+        "invoice_matches"
+    ) is False:
+
         evidence.append(
             {
                 "type": "invoice_mismatch",
                 "transaction_amount": invoice_result[
                     "transaction_amount"
                 ],
-                "invoice_amount": invoice_result["invoice_amount"],
-                "difference": invoice_result["difference"],
+                "invoice_amount": invoice_result[
+                    "invoice_amount"
+                ],
+                "difference": invoice_result[
+                    "difference"
+                ],
             }
         )
 
-    if duplicate_result.get("possible_duplicate"):
+    if duplicate_result.get(
+        "possible_duplicate"
+    ):
+
         evidence.append(
             {
                 "type": "possible_duplicate",
@@ -334,30 +364,103 @@ def investigate_transaction(transaction_id: str) -> Dict[str, Any]:
             }
         )
 
-        # ---------------------------------------------------------
-    # Determine investigation state
-    # ---------------------------------------------------------
+    # -----------------------------------------------------
+    # Identify scenario
+    # -----------------------------------------------------
 
-    has_insufficient_history = (
-        historical_result.get("status")
-        == "insufficient_history"
+    transactions = pd.read_csv(
+        DATA_DIR / "transactions.csv"
     )
 
-    if len(evidence) >= 2:
+    current_transaction = transactions[
+        transactions["transaction_id"]
+        == transaction_id
+    ]
+
+    scenario = None
+
+    if (
+        not current_transaction.empty
+        and "scenario" in transactions.columns
+    ):
+
+        scenario = current_transaction.iloc[0][
+            "scenario"
+        ]
+
+    # -----------------------------------------------------
+    # Scenario flags
+    # -----------------------------------------------------
+
+    is_new_vendor = (
+        scenario == "new_vendor"
+    )
+
+    is_extreme_anomaly = (
+        scenario == "extreme_spending_anomaly"
+    )
+
+    # -----------------------------------------------------
+    # Evidence flags
+    # -----------------------------------------------------
+
+    has_missing_invoice = (
+        invoice_result.get("status")
+        == "missing_invoice"
+    )
+
+    has_invoice_mismatch = (
+        invoice_result.get("invoice_matches")
+        is False
+    )
+
+    has_duplicate = (
+        duplicate_result.get(
+            "possible_duplicate"
+        )
+        is True
+    )
+
+    # -----------------------------------------------------
+    # Determine investigation outcome
+    # -----------------------------------------------------
+
+    # Concrete financial exceptions.
+    if (
+        has_missing_invoice
+        or has_invoice_mismatch
+        or has_duplicate
+    ):
+
+        if len(evidence) >= 2:
+            severity = "HIGH"
+        else:
+            severity = "MEDIUM"
+
+        status = "exception_detected"
+
+    # Explicit extreme unexplained anomaly.
+    elif is_extreme_anomaly:
+
         severity = "HIGH"
         status = "exception_detected"
 
-    elif len(evidence) == 1:
-        severity = "MEDIUM"
-        status = "exception_detected"
+    # New vendor requires human review.
+    elif is_new_vendor:
 
-    elif has_insufficient_history:
         severity = "MEDIUM"
         status = "review_required"
 
+    # Everything else is considered normal
+    # when supporting documentation is valid.
     else:
+
         severity = "NORMAL"
         status = "no_exception"
+
+    # -----------------------------------------------------
+    # Return investigation result
+    # -----------------------------------------------------
 
     return {
         "status": status,
@@ -374,122 +477,169 @@ def investigate_transaction(transaction_id: str) -> Dict[str, Any]:
         },
     }
 
-def create_finding(investigation: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Convert investigation evidence into a structured financial finding.
 
-    This layer uses deterministic rules to summarize known evidence.
-    The AI agent can later improve the explanation and reasoning,
-    but it should not replace the underlying financial calculations.
-    """
+def create_finding(
+    investigation: Dict[str, Any],
+) -> Dict[str, Any]:
 
-    if investigation.get("status") != "exception_detected":
+    if investigation.get(
+        "status"
+    ) != "exception_detected":
+
         return {
             "status": "no_exception",
             "finding": None,
         }
 
-    transaction_id = investigation["transaction_id"]
+    transaction_id = investigation[
+        "transaction_id"
+    ]
+
     vendor = investigation["vendor"]
+
     amount = investigation["amount"]
+
     severity = investigation["severity"]
+
     evidence = investigation["evidence"]
 
-    evidence_descriptions = []
+    # -----------------------------------------------------
+    # Identify evidence types
+    # -----------------------------------------------------
 
     has_historical_anomaly = False
     has_invoice_mismatch = False
+    has_missing_invoice = False
     has_duplicate = False
 
     for item in evidence:
 
         if item["type"] == "historical_spending":
+
             has_historical_anomaly = True
 
-            evidence_descriptions.append(
-                "Spending is significantly above the vendor's "
-                "historical average."
-            )
-
         elif item["type"] == "invoice_mismatch":
+
             has_invoice_mismatch = True
 
-            evidence_descriptions.append(
-                "The transaction amount does not match "
-                "the available invoice."
-            )
+        elif item["type"] == "missing_invoice":
+
+            has_missing_invoice = True
 
         elif item["type"] == "possible_duplicate":
+
             has_duplicate = True
 
-            evidence_descriptions.append(
-                "Another transaction has matching vendor, "
-                "amount, and invoice information."
-            )
+    # -----------------------------------------------------
+    # Generate finding
+    # -----------------------------------------------------
 
-    if has_historical_anomaly and has_invoice_mismatch:
-        title = f"{vendor} transaction requires review"
+    if (
+        has_historical_anomaly
+        and has_invoice_mismatch
+    ):
+
+        title = (
+            f"{vendor} transaction requires review"
+        )
 
         summary = (
-            f"Transaction {transaction_id} for ₹{amount:,.2f} "
-            f"shows both unusual historical spending and an "
-            f"invoice mismatch."
+            f"Transaction {transaction_id} "
+            f"for ₹{amount:,.2f} shows both "
+            f"unusual historical spending and "
+            f"an invoice mismatch."
         )
 
         recommendation = (
-            "Review the transaction and supporting documentation "
-            "before reconciliation."
+            "Review the transaction and supporting "
+            "documentation before reconciliation."
         )
 
     elif has_duplicate:
-        title = f"Potential duplicate payment: {vendor}"
+
+        title = (
+            f"Potential duplicate payment: {vendor}"
+        )
 
         summary = (
-            f"Transaction {transaction_id} appears to have a "
-            "matching transaction."
+            f"Transaction {transaction_id} "
+            "appears to have a matching transaction."
         )
 
         recommendation = (
-            "Review the matching transaction before processing "
-            "or reconciling the payment."
+            "Review the matching transaction before "
+            "processing or reconciling the payment."
         )
 
-    elif has_historical_anomaly:
-        title = f"Unusual {vendor} spending"
+    elif has_missing_invoice:
+
+        title = (
+            f"Missing invoice: {vendor}"
+        )
 
         summary = (
-            f"Transaction {transaction_id} is significantly "
-            "above the vendor's historical spending pattern."
+            f"Transaction {transaction_id} "
+            f"for ₹{amount:,.2f} does not have "
+            "a corresponding invoice."
         )
 
         recommendation = (
-            "Review the transaction and confirm the business reason "
-            "for the increase."
-        )
-
-    elif has_invoice_mismatch:
-        title = f"Invoice mismatch: {vendor}"
-
-        summary = (
-            f"Transaction {transaction_id} does not match "
-            "the available invoice."
-        )
-
-        recommendation = (
-            "Review the invoice and transaction details "
+            "Obtain and verify the supporting invoice "
             "before reconciliation."
         )
 
-    else:
-        title = f"Financial exception: {transaction_id}"
+    elif has_historical_anomaly:
+
+        title = (
+            f"Unusual {vendor} spending"
+        )
 
         summary = (
-            f"Transaction {transaction_id} requires additional review."
+            f"Transaction {transaction_id} "
+            "is significantly above the vendor's "
+            "historical spending pattern."
         )
 
         recommendation = (
-            "Review the available evidence before reconciliation."
+            "Review the transaction and confirm "
+            "the business reason for the increase."
         )
+
+    elif has_invoice_mismatch:
+
+        title = (
+            f"Invoice mismatch: {vendor}"
+        )
+
+        summary = (
+            f"Transaction {transaction_id} "
+            "does not match the available invoice."
+        )
+
+        recommendation = (
+            "Review the invoice and transaction "
+            "details before reconciliation."
+        )
+
+    else:
+
+        title = (
+            f"Financial exception: {transaction_id}"
+        )
+
+        summary = (
+            f"Transaction {transaction_id} "
+            "requires additional review."
+        )
+
+        recommendation = (
+            "Review the available evidence "
+            "before reconciliation."
+        )
+
+    # -----------------------------------------------------
+    # Structured finding
+    # -----------------------------------------------------
 
     finding = {
         "title": title,
