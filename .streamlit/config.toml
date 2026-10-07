@@ -1,0 +1,12 @@
+# Forces the light theme so Streamlit widgets never render white text
+# on FinPilot's light background (this happens when the browser/OS is in dark mode).
+[theme]
+base = "light"
+primaryColor = "#5536C9"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#FFFFFF"
+textColor = "#17141F"
+font = "sans serif"
+
+[client]
+toolbarMode = "minimal"
