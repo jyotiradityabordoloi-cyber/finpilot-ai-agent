@@ -52,27 +52,25 @@ def evaluate_state_classification() -> None:
 
     The evaluator measures:
     - State accuracy
-    - Per-state performance
+    - Per-state precision and recall
+    - Confusion matrix
     - Incorrect classifications
     """
 
+    # Only labelled scenarios are evaluated.
     ground_truth = pd.read_csv(
         DATA_DIR / "ground_truth.csv"
-    )
-
-    transactions = pd.read_csv(
-        DATA_DIR / "transactions.csv"
     )
 
     results = []
 
     # -----------------------------------------------------
-    # Run FinPilot against every transaction
+    # Run FinPilot only against labelled transactions
     # -----------------------------------------------------
 
-    for _, transaction in transactions.iterrows():
+    for _, expected in ground_truth.iterrows():
 
-        transaction_id = transaction["transaction_id"]
+        transaction_id = expected["transaction_id"]
 
         investigation = investigate_transaction(
             transaction_id
@@ -82,17 +80,7 @@ def evaluate_state_classification() -> None:
             investigation
         )
 
-        ground_truth_match = ground_truth[
-            ground_truth["transaction_id"]
-            == transaction_id
-        ]
-
-        if ground_truth_match.empty:
-            expected_state = "UNKNOWN"
-        else:
-            expected_state = ground_truth_match.iloc[0][
-                "expected_state"
-            ]
+        expected_state = expected["expected_state"]
 
         results.append(
             {
@@ -173,7 +161,21 @@ def evaluate_state_classification() -> None:
             }
         )
 
-    metrics_df = pd.DataFrame(state_metrics)
+    metrics_df = pd.DataFrame(
+        state_metrics
+    )
+
+    # -----------------------------------------------------
+    # Confusion matrix
+    # -----------------------------------------------------
+
+    confusion_matrix = pd.crosstab(
+        results_df["expected_state"],
+        results_df["predicted_state"],
+        rownames=["Expected"],
+        colnames=["Predicted"],
+        dropna=False,
+    )
 
     # -----------------------------------------------------
     # Incorrect classifications
@@ -197,6 +199,14 @@ def evaluate_state_classification() -> None:
     print(f"Transactions evaluated : {total}")
     print(f"Correct classifications : {correct}")
     print(f"Overall accuracy        : {accuracy:.2%}")
+
+    print()
+    print("Confusion Matrix")
+    print("----------------")
+
+    print(
+        confusion_matrix.to_string()
+    )
 
     print()
     print("State Performance")
